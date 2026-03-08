@@ -302,14 +302,14 @@ class HostKernel:
                         )
                     backward_flops = state.get("update_backward_flops")
                     if isinstance(backward_flops, (int, float)) and float(backward_flops) > 0.0:
-                        self.compute_budget.record_hebbian_update(
+                        self.compute_budget.record_plasticity_update(
                             estimated_flops=float(backward_flops), training=training_intent
                         )
                     else:
                         params = self._trainable_params(organelle)
                         # Estimate: 2 FLOPs per param (scale + add)
                         hebbian_flops = float(params * 2)
-                        self.compute_budget.record_hebbian_update(
+                        self.compute_budget.record_plasticity_update(
                             estimated_flops=hebbian_flops, training=training_intent
                         )
                 except Exception:

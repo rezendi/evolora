@@ -417,7 +417,7 @@ def summarize_slice(episodes_jsonl: Path, start_idx: int, end_idx: int) -> dict:
     totals, task_rewards, costs = [], [], []
     slice_tokens = 0
     slice_forward_passes = 0
-    slice_hebbian_updates = 0
+    slice_plasticity_updates = 0
     with episodes_jsonl.open() as f:
         for i, line in enumerate(f):
             if i < start_idx or i >= end_idx:
@@ -445,10 +445,10 @@ def summarize_slice(episodes_jsonl: Path, start_idx: int, end_idx: int) -> dict:
                 metrics.get("tokens", 0) or obs.get("tokens", 0) or obs.get("prompt_tokens", 0) or 0
             )
             slice_tokens += int(tokens)
-            # Each episode = 1 forward pass + 1 hebbian update per organelle
+            # Each episode = 1 forward pass + 1 plasticity update per organelle
             num_organelles = len(obj.get("organelles", []))
             slice_forward_passes += max(1, num_organelles)
-            slice_hebbian_updates += max(1, num_organelles)
+            slice_plasticity_updates += max(1, num_organelles)
     return {
         "episodes": end_idx - start_idx,
         "avg_total": float(mean(totals)) if totals else 0.0,
@@ -456,7 +456,7 @@ def summarize_slice(episodes_jsonl: Path, start_idx: int, end_idx: int) -> dict:
         "avg_cost_penalty": float(mean(costs)) if costs else 0.0,
         "slice_tokens": slice_tokens,
         "slice_forward_passes": slice_forward_passes,
-        "slice_hebbian_updates": slice_hebbian_updates,
+        "slice_plasticity_updates": slice_plasticity_updates,
     }
 
 
@@ -1339,11 +1339,11 @@ def main() -> None:
         total_before = compute_budget.total_tokens
         total_generated_before = compute_budget.total_generated_tokens
         total_forwards_before = compute_budget.total_forward_passes
-        total_updates_before = compute_budget.total_hebbian_updates
+        total_updates_before = compute_budget.total_plasticity_updates
         train_before = compute_budget.train_tokens
         train_generated_before = compute_budget.train_generated_tokens
         train_forwards_before = compute_budget.train_forward_passes
-        train_updates_before = compute_budget.train_hebbian_updates
+        train_updates_before = compute_budget.train_plasticity_updates
 
         t_gen0 = time.time()
         summary = loop.run_generation(batch_size=config.environment.synthetic_batch_size)
@@ -1366,7 +1366,7 @@ def main() -> None:
                 "avg_cost_penalty": 0.0,
                 "slice_tokens": 0,
                 "slice_forward_passes": 0,
-                "slice_hebbian_updates": 0,
+                "slice_plasticity_updates": 0,
             }
         )
         generation_record: dict[str, object] = {
@@ -1391,8 +1391,8 @@ def main() -> None:
                 "slice_forward_passes": int(
                     compute_budget.train_forward_passes - train_forwards_before
                 ),
-                "slice_hebbian_updates": int(
-                    compute_budget.train_hebbian_updates - train_updates_before
+                "slice_plasticity_updates": int(
+                    compute_budget.train_plasticity_updates - train_updates_before
                 ),
                 "slice_total_tokens": int(compute_budget.total_tokens - total_before),
                 "slice_total_generated_tokens": int(
@@ -1401,8 +1401,8 @@ def main() -> None:
                 "slice_total_forward_passes": int(
                     compute_budget.total_forward_passes - total_forwards_before
                 ),
-                "slice_total_hebbian_updates": int(
-                    compute_budget.total_hebbian_updates - total_updates_before
+                "slice_total_plasticity_updates": int(
+                    compute_budget.total_plasticity_updates - total_updates_before
                 ),
                 "gen_wall_clock_seconds": gen_wall,
             }

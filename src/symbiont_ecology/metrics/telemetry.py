@@ -115,13 +115,13 @@ class ComputeBudget(BaseModel):
 
     total_tokens: int = 0
     total_forward_passes: int = 0
-    total_hebbian_updates: int = 0
+    total_plasticity_updates: int = 0
     total_flops: float = 0.0
     total_generated_tokens: int = 0
     wall_clock_seconds: float = 0.0
     train_tokens: int = 0
     train_forward_passes: int = 0
-    train_hebbian_updates: int = 0
+    train_plasticity_updates: int = 0
     train_flops: float = 0.0
     train_generated_tokens: int = 0
 
@@ -146,14 +146,14 @@ class ComputeBudget(BaseModel):
             self.train_forward_passes += 1
             self.train_flops += flops
 
-    def record_hebbian_update(
+    def record_plasticity_update(
         self, estimated_flops: float = 0.0, *, training: bool = False
     ) -> None:
-        """Record a Hebbian weight update (analogous to a gradient step)."""
-        self.total_hebbian_updates += 1
+        """Record a plasticity weight update (Hebbian or backprop)."""
+        self.total_plasticity_updates += 1
         self.total_flops += estimated_flops
         if training:
-            self.train_hebbian_updates += 1
+            self.train_plasticity_updates += 1
             self.train_flops += estimated_flops
 
     def add_wall_clock(self, seconds: float) -> None:
@@ -165,13 +165,13 @@ class ComputeBudget(BaseModel):
         return {
             "total_tokens": self.total_tokens,
             "total_forward_passes": self.total_forward_passes,
-            "total_hebbian_updates": self.total_hebbian_updates,
+            "total_plasticity_updates": self.total_plasticity_updates,
             "total_flops": self.total_flops,
             "total_generated_tokens": self.total_generated_tokens,
             "wall_clock_seconds": self.wall_clock_seconds,
             "train_tokens": self.train_tokens,
             "train_forward_passes": self.train_forward_passes,
-            "train_hebbian_updates": self.train_hebbian_updates,
+            "train_plasticity_updates": self.train_plasticity_updates,
             "train_flops": self.train_flops,
             "train_generated_tokens": self.train_generated_tokens,
         }
