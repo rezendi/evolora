@@ -495,7 +495,18 @@ class HostKernel:
             if key not in self.assimilation_state:
                 self.assimilation_state[key] = torch.zeros_like(combined)
                 self.assimilation_weights[key] = 0.0
-            self.assimilation_state[key].add_(combined)
+            existing = self.assimilation_state[key]
+            if existing.shape != combined.shape:
+                # Truncate both to the smaller shape so they're compatible
+                min_shape = [
+                    min(existing.shape[d], combined.shape[d]) for d in range(existing.ndim)
+                ]
+                sl = tuple(slice(0, s) for s in min_shape)
+                new_acc = existing[sl].clone()
+                self.assimilation_state[key] = new_acc
+                existing = new_acc
+                combined = combined[sl]
+            existing.add_(combined)
             self.assimilation_weights[key] = self.assimilation_weights.get(key, 0.0) + float(
                 total_alpha_map.get(key, 0.0)
             )
@@ -629,27 +640,21 @@ class HostKernel:
                     combined = None
             else:
                 combined = None
-                for part in parts:
-                    alpha_val = part.alpha
-                    tensor = part.tensor
-                    if combined is None:
-                        combined = tensor * alpha_val
-                    else:
-                        # Pad to the larger shape if ranks differ
-                        if combined.shape != tensor.shape:
-                            max_shape = [
-                                max(combined.shape[d], tensor.shape[d])
-                                for d in range(combined.ndim)
-                            ]
-                            if list(combined.shape) != max_shape:
-                                padded = torch.zeros(max_shape, dtype=combined.dtype)
-                                padded[tuple(slice(0, s) for s in combined.shape)] = combined
-                                combined = padded
-                            if list(tensor.shape) != max_shape:
-                                padded = torch.zeros(max_shape, dtype=tensor.dtype)
-                                padded[tuple(slice(0, s) for s in tensor.shape)] = tensor
-                                tensor = padded
-                        combined = combined + tensor * alpha_val
+                shapes_match = len(set(part.tensor.shape for part in parts)) == 1
+                if shapes_match:
+                    for part in parts:
+                        scaled = part.tensor * part.alpha
+                        combined = scaled if combined is None else combined + scaled
+                else:
+                    # Ranks differ: truncate all tensors to the minimum rank
+                    min_shape = list(parts[0].tensor.shape)
+                    for part in parts:
+                        for d in range(len(min_shape)):
+                            min_shape[d] = min(min_shape[d], part.tensor.shape[d])
+                    for part in parts:
+                        tensor = part.tensor[tuple(slice(0, s) for s in min_shape)]
+                        scaled = tensor * part.alpha
+                        combined = scaled if combined is None else combined + scaled
             if combined is None:
                 continue
             if combined.ndim == 2 and effective_rank > 0 and mode != "block":
