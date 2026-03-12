@@ -632,9 +632,24 @@ class HostKernel:
                 for part in parts:
                     alpha_val = part.alpha
                     tensor = part.tensor
-                    combined = (
-                        tensor * alpha_val if combined is None else combined + tensor * alpha_val
-                    )
+                    if combined is None:
+                        combined = tensor * alpha_val
+                    else:
+                        # Pad to the larger shape if ranks differ
+                        if combined.shape != tensor.shape:
+                            max_shape = [
+                                max(combined.shape[d], tensor.shape[d])
+                                for d in range(combined.ndim)
+                            ]
+                            if list(combined.shape) != max_shape:
+                                padded = torch.zeros(max_shape, dtype=combined.dtype)
+                                padded[tuple(slice(0, s) for s in combined.shape)] = combined
+                                combined = padded
+                            if list(tensor.shape) != max_shape:
+                                padded = torch.zeros(max_shape, dtype=tensor.dtype)
+                                padded[tuple(slice(0, s) for s in tensor.shape)] = tensor
+                                tensor = padded
+                        combined = combined + tensor * alpha_val
             if combined is None:
                 continue
             if combined.ndim == 2 and effective_rank > 0 and mode != "block":
